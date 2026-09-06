@@ -1,0 +1,1132 @@
+/* =========================================================
+   SEMIVISION
+   Semiconductor Wafer Inspection UI
+   ========================================================= */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap");
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  background: #05080d;
+  color: #eef7ff;
+  font-family: "Inter", sans-serif;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.app {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(0, 210, 255, 0.08), transparent 28%),
+    radial-gradient(circle at 90% 70%, rgba(0, 110, 255, 0.06), transparent 30%),
+    #05080d;
+}
+
+/* subtle technical grid */
+
+.app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(0, 210, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 210, 255, 0.035) 1px, transparent 1px);
+  background-size: 45px 45px;
+  mask-image: linear-gradient(to bottom, black, transparent 85%);
+}
+
+/* =========================================================
+   HEADER
+   ========================================================= */
+
+.header {
+  width: 100%;
+  height: 76px;
+  padding: 0 7%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
+  background: rgba(5, 8, 13, 0.86);
+  backdrop-filter: blur(18px);
+
+  border-bottom: 1px solid rgba(0, 220, 255, 0.12);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.logo-icon {
+  width: 35px;
+  height: 35px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  color: #061018;
+  background: #00d9ff;
+
+  box-shadow:
+    0 0 18px rgba(0, 217, 255, 0.35),
+    inset 0 0 10px rgba(255, 255, 255, 0.2);
+
+  font-size: 19px;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  color: #62eaff;
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+
+  background: #00e5ff;
+
+  box-shadow:
+    0 0 8px #00e5ff,
+    0 0 18px rgba(0, 229, 255, 0.65);
+
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.55;
+    transform: scale(0.75);
+  }
+}
+
+/* =========================================================
+   MAIN
+   ========================================================= */
+
+.main-container {
+  width: min(1100px, 92%);
+  margin: 0 auto;
+  padding: 75px 0 70px;
+}
+
+/* =========================================================
+   HERO
+   ========================================================= */
+
+.hero {
+  text-align: center;
+  padding: 35px 0 55px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  margin-bottom: 20px;
+
+  color: #00dfff;
+
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.8px;
+}
+
+.eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00dfff;
+  box-shadow: 0 0 12px #00dfff;
+}
+
+.hero h1 {
+  max-width: 900px;
+  margin: auto;
+
+  font-size: clamp(48px, 7vw, 82px);
+  line-height: 0.98;
+  font-weight: 800;
+  letter-spacing: -4px;
+}
+
+.hero h1 span {
+  display: block;
+
+  background: linear-gradient(
+    100deg,
+    #00d9ff,
+    #18aaff,
+    #00efff
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+
+  filter: drop-shadow(0 0 25px rgba(0, 213, 255, 0.13));
+}
+
+.hero-text {
+  max-width: 650px;
+  margin: 28px auto 0;
+
+  color: #8194a8;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+/* =========================================================
+   UPLOAD CARD
+   ========================================================= */
+
+.upload-card {
+  position: relative;
+
+  padding: 30px;
+
+  border: 1px solid rgba(0, 218, 255, 0.22);
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(12, 26, 37, 0.94),
+      rgba(7, 14, 22, 0.97)
+    );
+
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+
+  overflow: hidden;
+}
+
+.upload-card::before {
+  content: "";
+  position: absolute;
+
+  width: 260px;
+  height: 260px;
+
+  top: -160px;
+  right: -100px;
+
+  border-radius: 50%;
+
+  background: rgba(0, 220, 255, 0.08);
+  filter: blur(40px);
+}
+
+.card-header {
+  position: relative;
+  z-index: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.card-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.card-header p {
+  margin-top: 7px;
+
+  color: #73889b;
+  font-size: 13px;
+}
+
+.model-badge {
+  padding: 10px 16px;
+
+  border: 1px solid rgba(0, 220, 255, 0.35);
+  border-radius: 999px;
+
+  color: #00dfff;
+  background: rgba(0, 210, 255, 0.06);
+
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+
+  box-shadow: inset 0 0 18px rgba(0, 220, 255, 0.03);
+}
+
+/* =========================================================
+   UPLOAD AREA
+   ========================================================= */
+
+.upload-area {
+  min-height: 310px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  position: relative;
+
+  padding: 35px;
+
+  border: 1px dashed rgba(0, 218, 255, 0.35);
+  border-radius: 16px;
+
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(0, 210, 255, 0.065),
+      transparent 55%
+    ),
+    rgba(4, 12, 19, 0.72);
+
+  transition:
+    border-color 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease;
+
+  overflow: hidden;
+}
+
+.upload-area::before,
+.upload-area::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.upload-area::before {
+  inset: 12px;
+
+  border: 1px solid rgba(0, 210, 255, 0.035);
+  border-radius: 11px;
+}
+
+.upload-area::after {
+  width: 130px;
+  height: 1px;
+
+  left: 50%;
+  top: 0;
+
+  transform: translateX(-50%);
+
+  background: #00dfff;
+  box-shadow: 0 0 16px #00dfff;
+
+  animation: scanner 3s infinite;
+}
+
+@keyframes scanner {
+  0% {
+    top: 5%;
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 95%;
+    opacity: 0;
+  }
+}
+
+.upload-area:hover {
+  border-color: rgba(0, 225, 255, 0.7);
+
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(0, 210, 255, 0.1),
+      transparent 55%
+    ),
+    rgba(5, 17, 26, 0.85);
+
+  transform: translateY(-2px);
+}
+
+.upload-icon {
+  width: 72px;
+  height: 72px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 20px;
+
+  border: 1px solid rgba(0, 220, 255, 0.35);
+  border-radius: 50%;
+
+  color: #00dfff;
+  background: rgba(0, 210, 255, 0.055);
+
+  font-size: 34px;
+
+  box-shadow:
+    0 0 35px rgba(0, 210, 255, 0.08),
+    inset 0 0 25px rgba(0, 210, 255, 0.04);
+}
+
+.upload-area h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.upload-area p {
+  margin-top: 8px;
+
+  color: #8296a8;
+  font-size: 13px;
+}
+
+.upload-area > span {
+  margin-top: 13px;
+
+  color: #4e6578;
+
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+/* =========================================================
+   IMAGE PREVIEW
+   ========================================================= */
+
+.image-preview {
+  max-width: 100%;
+  max-height: 280px;
+
+  object-fit: contain;
+
+  border-radius: 12px;
+
+  border: 1px solid rgba(0, 220, 255, 0.25);
+
+  box-shadow:
+    0 0 30px rgba(0, 210, 255, 0.08),
+    0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+/* =========================================================
+   SELECTED FILE
+   ========================================================= */
+
+.selected-file {
+  margin-top: 15px;
+  padding: 13px 16px;
+
+  border: 1px solid rgba(0, 220, 255, 0.1);
+  border-radius: 10px;
+
+  color: #8ea2b4;
+  background: rgba(0, 220, 255, 0.035);
+
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selected-file span {
+  color: #00dfff;
+}
+
+/* =========================================================
+   ANALYZE BUTTON
+   ========================================================= */
+
+.analyze-button {
+  width: 100%;
+  margin-top: 18px;
+  padding: 17px 22px;
+
+  border: none;
+  border-radius: 11px;
+
+  color: #031018;
+  background: linear-gradient(
+    100deg,
+    #00d9ff,
+    #0ac8f0
+  );
+
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+
+  box-shadow:
+    0 10px 30px rgba(0, 210, 255, 0.15);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.analyze-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 14px 38px rgba(0, 210, 255, 0.27);
+}
+
+.analyze-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.analyze-button:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+/* =========================================================
+   RESULTS GRID
+   ========================================================= */
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 16px;
+
+  margin-top: 18px;
+}
+
+.info-card {
+  min-height: 110px;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+
+  padding: 21px;
+
+  border: 1px solid rgba(0, 220, 255, 0.1);
+  border-radius: 15px;
+
+  background: rgba(10, 20, 29, 0.7);
+
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(0, 220, 255, 0.3);
+}
+
+.info-icon {
+  min-width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  color: #00dfff;
+  background: rgba(0, 220, 255, 0.07);
+
+  font-family: "Space Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.info-card h3 {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.info-card p {
+  margin-top: 7px;
+
+  color: #708496;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* =========================================================
+   ANALYSIS RESULT
+   These styles also support result sections already
+   present in the React application.
+   ========================================================= */
+
+.results-card,
+.analysis-card,
+.result-card {
+  position: relative;
+
+  margin-top: 25px;
+  padding: 30px;
+
+  border: 1px solid rgba(0, 220, 255, 0.18);
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(11, 23, 33, 0.96),
+      rgba(6, 13, 21, 0.98)
+    );
+
+  box-shadow:
+    0 25px 80px rgba(0, 0, 0, 0.4);
+}
+
+.results-card h2,
+.analysis-card h2,
+.result-card h2 {
+  font-size: 22px;
+}
+
+/* =========================================================
+   RESULT HEADER
+   ========================================================= */
+
+.result-header,
+.analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.result-header p,
+.analysis-header p {
+  margin-top: 6px;
+
+  color: #70879a;
+  font-size: 13px;
+}
+
+.result-badge,
+.analysis-badge {
+  padding: 10px 14px;
+
+  border: 1px solid rgba(0, 220, 255, 0.3);
+  border-radius: 999px;
+
+  color: #00dfff;
+  background: rgba(0, 220, 255, 0.055);
+
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* =========================================================
+   DEFECT / CONFIDENCE
+   ========================================================= */
+
+.detected-defect,
+.prediction {
+  text-align: center;
+
+  padding: 15px 0 35px;
+}
+
+.detected-defect label,
+.prediction label,
+.confidence label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #728696;
+
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.detected-defect h2,
+.prediction h2 {
+  font-size: clamp(34px, 5vw, 52px);
+  letter-spacing: -2px;
+
+  background: linear-gradient(
+    100deg,
+    #ffffff,
+    #00dcff
+  );
+
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.confidence {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.confidence-value {
+  font-size: 38px;
+  font-weight: 800;
+
+  color: #f1fbff;
+
+  text-shadow: 0 0 25px rgba(0, 220, 255, 0.15);
+}
+
+/* =========================================================
+   IMAGE RESULT GRID
+   ========================================================= */
+
+.result-images,
+.image-results,
+.wafer-results {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.result-image-card,
+.image-card,
+.wafer-image-card {
+  padding: 15px;
+
+  border: 1px solid rgba(0, 220, 255, 0.11);
+  border-radius: 15px;
+
+  background: rgba(2, 9, 15, 0.72);
+}
+
+.result-image-card h3,
+.image-card h3,
+.wafer-image-card h3 {
+  margin-bottom: 12px;
+
+  text-align: center;
+
+  color: #eaf8ff;
+  font-size: 14px;
+}
+
+.result-image-card img,
+.image-card img,
+.wafer-image-card img {
+  display: block;
+
+  width: 100%;
+  max-height: 420px;
+
+  object-fit: contain;
+
+  border-radius: 10px;
+
+  background: #020507;
+}
+
+/* =========================================================
+   TABLES
+   ========================================================= */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+
+  margin-top: 18px;
+
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+th,
+td {
+  padding: 12px 14px;
+
+  text-align: left;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+  font-size: 12px;
+}
+
+th {
+  color: #00dfff;
+
+  background: rgba(0, 220, 255, 0.045);
+
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+}
+
+td {
+  color: #91a5b6;
+}
+
+tr:hover td {
+  background: rgba(0, 220, 255, 0.025);
+}
+
+/* =========================================================
+   STATUS LABELS
+   ========================================================= */
+
+.status-success,
+.success {
+  color: #42f5a7;
+}
+
+.status-warning,
+.warning {
+  color: #ffd166;
+}
+
+.status-danger,
+.danger,
+.fail {
+  color: #ff6b7a;
+}
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 10px;
+
+  padding: 30px;
+
+  color: #00dfff;
+
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+}
+
+.loading::before {
+  content: "";
+
+  width: 14px;
+  height: 14px;
+
+  border: 2px solid rgba(0, 220, 255, 0.2);
+  border-top-color: #00dfff;
+
+  border-radius: 50%;
+
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+footer {
+  width: 100%;
+
+  padding: 30px 20px 38px;
+
+  border-top: 1px solid rgba(0, 220, 255, 0.08);
+
+  text-align: center;
+
+  color: #536777;
+
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #05080d;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #18313e;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #245267;
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 750px) {
+  .header {
+    height: 68px;
+    padding: 0 5%;
+  }
+
+  .logo {
+    font-size: 17px;
+  }
+
+  .logo-icon {
+    width: 31px;
+    height: 31px;
+  }
+
+  .header-status {
+    font-size: 9px;
+    letter-spacing: 0.8px;
+  }
+
+  .main-container {
+    width: 92%;
+    padding-top: 45px;
+  }
+
+  .hero {
+    padding-bottom: 40px;
+  }
+
+  .hero h1 {
+    font-size: clamp(42px, 12vw, 60px);
+    letter-spacing: -2.5px;
+  }
+
+  .hero-text {
+    font-size: 14px;
+  }
+
+  .upload-card {
+    padding: 20px;
+    border-radius: 17px;
+  }
+
+  .card-header {
+    align-items: flex-start;
+  }
+
+  .card-header h2 {
+    font-size: 19px;
+  }
+
+  .model-badge {
+    padding: 8px 11px;
+    font-size: 9px;
+  }
+
+  .upload-area {
+    min-height: 260px;
+    padding: 25px;
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .result-images,
+  .image-results,
+  .wafer-results {
+    grid-template-columns: 1fr;
+  }
+
+  .result-header,
+  .analysis-header {
+    align-items: flex-start;
+  }
+}
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 480px) {
+  .header-status {
+    display: none;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+  }
+
+  .hero-text {
+    font-size: 13px;
+  }
+
+  .card-header {
+    flex-direction: column;
+  }
+
+  .model-badge {
+    align-self: flex-start;
+  }
+
+  .upload-area {
+    min-height: 230px;
+  }
+
+  .upload-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+  }
+}
+/* =========================================================
+   FILE ACTIONS
+   ========================================================= */
+
+.selected-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.change-button,
+.remove-button {
+  padding: 8px 12px;
+
+  border-radius: 8px;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  transition: 0.2s ease;
+}
+
+/* Change */
+
+.change-button {
+  color: #00dfff;
+
+  border: 1px solid rgba(0, 220, 255, 0.25);
+
+  background: rgba(0, 220, 255, 0.06);
+
+  cursor: pointer;
+}
+
+.change-button:hover {
+  border-color: rgba(0, 220, 255, 0.65);
+  background: rgba(0, 220, 255, 0.12);
+}
+
+/* Remove */
+
+.remove-button {
+  color: #ff7585;
+
+  border: 1px solid rgba(255, 90, 110, 0.25);
+
+  background: rgba(255, 90, 110, 0.05);
+}
+
+.remove-button:hover {
+  border-color: rgba(255, 90, 110, 0.65);
+  background: rgba(255, 90, 110, 0.12);
+}
+
+@media (max-width: 600px) {
+  .selected-file {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .file-actions {
+    width: 100%;
+  }
+
+  .change-button,
+  .remove-button {
+    flex: 1;
+    text-align: center;
+  }
+}
