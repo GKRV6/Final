@@ -34,7 +34,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "http://localhost:5174"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -73,23 +74,18 @@ print("Using device:", device)
 # PATHS
 # =========================================================
 
-# Project root
 project_root = os.path.dirname(
     os.path.dirname(
         os.path.abspath(__file__)
     )
 )
 
-
-# Model path
 model_path = os.path.join(
     project_root,
     "models",
     "resnet50_wafer.pth"
 )
 
-
-# Heatmap folder
 heatmap_folder = os.path.join(
     os.path.dirname(
         os.path.abspath(__file__)
@@ -97,8 +93,6 @@ heatmap_folder = os.path.join(
     "heatmaps"
 )
 
-
-# History file
 history_file = os.path.join(
     os.path.dirname(
         os.path.abspath(__file__)
@@ -116,7 +110,6 @@ os.makedirs(
     exist_ok=True
 )
 
-
 if not os.path.exists(history_file):
 
     with open(history_file, "w") as f:
@@ -131,8 +124,6 @@ model = models.resnet50(
     weights=None
 )
 
-
-# Replace final classification layer
 model.fc = torch.nn.Linear(
     model.fc.in_features,
     8
@@ -149,14 +140,12 @@ if not os.path.exists(model_path):
         f"Model file not found: {model_path}"
     )
 
-
 model.load_state_dict(
     torch.load(
         model_path,
         map_location=device
     )
 )
-
 
 model = model.to(device)
 
@@ -288,11 +277,9 @@ async def predict(
 
     target_layer = model.layer4[-1]
 
-
     forward_handle = target_layer.register_forward_hook(
         forward_hook
     )
-
 
     backward_handle = target_layer.register_full_backward_hook(
         backward_hook
@@ -398,12 +385,9 @@ async def predict(
         0
     ].detach().cpu().numpy()
 
-
     cam = cam - cam.min()
 
-
     if cam.max() != 0:
-
         cam = cam / cam.max()
 
 
@@ -415,11 +399,9 @@ async def predict(
         cam
     )[:, :, :3]
 
-
     heatmap = np.uint8(
         heatmap * 255
     )
-
 
     heatmap_image = Image.fromarray(
         heatmap
@@ -454,11 +436,9 @@ async def predict(
         "%Y%m%d_%H%M%S_%f"
     )
 
-
     heatmap_filename = (
         f"heatmap_{timestamp}.png"
     )
-
 
     heatmap_path = os.path.join(
         heatmap_folder,
@@ -475,18 +455,45 @@ async def predict(
     )
 
 
-    # -----------------------------------------------------
-    # Final prediction values
-    # -----------------------------------------------------
+    # =====================================================
+    # FINAL PREDICTION VALUES
+    # =====================================================
 
     defect = classes[
         predicted.item()
     ]
 
-
     confidence_percentage = (
         confidence.item() * 100
     )
+
+
+    # =====================================================
+    # CONFIDENCE WARNING
+    # =====================================================
+
+    if confidence_percentage >= 80:
+
+        confidence_status = "High Confidence"
+
+        confidence_warning = None
+
+    elif confidence_percentage >= 60:
+
+        confidence_status = "Moderate Confidence"
+
+        confidence_warning = (
+            "Prediction is moderately confident."
+        )
+
+    else:
+
+        confidence_status = "Low Confidence"
+
+        confidence_warning = (
+            "Low confidence prediction. "
+            "Manual inspection recommended."
+        )
 
 
     # =====================================================
@@ -523,6 +530,10 @@ async def predict(
             confidence_percentage,
             2
         ),
+
+        "confidence_status": confidence_status,
+
+        "confidence_warning": confidence_warning,
 
         "timestamp": datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
@@ -572,6 +583,10 @@ async def predict(
             2
         ),
 
+        "confidence_status": confidence_status,
+
+        "confidence_warning": confidence_warning,
+
         "heatmap": (
             f"/heatmaps/{heatmap_filename}"
         ),
@@ -604,7 +619,9 @@ def get_history():
 
 
     return {
+
         "total_inspections": len(history),
+
         "inspections": history
     }
 
@@ -629,5 +646,6 @@ def clear_history():
 
 
     return {
+
         "message": "Inspection history cleared successfully"
     }

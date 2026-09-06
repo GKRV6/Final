@@ -1,28 +1,41 @@
 import { useRef, useState } from "react";
 import "./App.css";
 
+const API_BASE_URL = "http://127.0.0.1:8000";
+const CONFIDENCE_THRESHOLD = 70;
+
 function App() {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
-
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // =========================
+  // PREDICTION HISTORY
+  // =========================
+
+  const [history, setHistory] = useState(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("wafer_prediction_history")
+      ) || [];
+    } catch {
+      return [];
+    }
+  });
+
   const fileInputRef = useRef(null);
 
-  // =========================================================
-  // IMAGE SELECTION
-  // =========================================================
+  // =========================
+  // SELECT IMAGE
+  // =========================
 
   const handleImageChange = (event) => {
     const file = event.target.files[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
-    // Check image type
     if (!file.type.startsWith("image/")) {
       setError("Please select a valid image file.");
       return;
@@ -38,14 +51,14 @@ function App() {
     setImage(file);
     setPreview(newPreview);
 
-    // Clear old result
+    // Clear previous result
     setResult(null);
     setError(null);
   };
 
-  // =========================================================
+  // =========================
   // REMOVE IMAGE
-  // =========================================================
+  // =========================
 
   const handleRemoveImage = () => {
     if (preview) {
@@ -57,15 +70,15 @@ function App() {
     setResult(null);
     setError(null);
 
-    // Allow selecting same image again
+    // Allows selecting the same image again
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // =========================================================
+  // =========================
   // CHANGE IMAGE
-  // =========================================================
+  // =========================
 
   const handleChangeImage = () => {
     if (fileInputRef.current) {
@@ -73,71 +86,110 @@ function App() {
     }
   };
 
-  // =========================================================
+  // =========================
   // ANALYZE IMAGE
-  // =========================================================
+  // =========================
 
   const handleAnalyze = async () => {
-    if (!image) {
-      return;
-    }
+    if (!image) return;
 
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      // Create FormData
       const formData = new FormData();
 
-      // IMPORTANT:
-      // FastAPI endpoint expects the field name "file"
+      // FastAPI expects "file"
       formData.append("file", image);
 
-      // Send image to FastAPI
       const response = await fetch(
-        "http://127.0.0.1:8000/predict",
+        `${API_BASE_URL}/predict`,
         {
           method: "POST",
           body: formData,
         }
       );
 
-      // Check response
       if (!response.ok) {
-        throw new Error(
-          `Backend error: ${response.status}`
-        );
+        let message = `Backend error: ${response.status}`;
+
+        try {
+          const errorData = await response.json();
+
+          if (errorData.detail) {
+            message = errorData.detail;
+          }
+        } catch {
+          // Keep default error message
+        }
+
+        throw new Error(message);
       }
 
-      // Convert response to JSON
       const data = await response.json();
 
-      console.log("Backend response:", data);
+      console.log("AI Backend Response:", data);
 
+      // Display result
       setResult(data);
+
+      // =========================
+      // SAVE PREDICTION HISTORY
+      // =========================
+
+      const historyItem = {
+        id: Date.now(),
+        wafer_id: data.wafer_id || image.name,
+        defect: data.defect || "Unknown",
+        confidence: Number(data.confidence) || 0,
+        timestamp:
+          data.timestamp || new Date().toLocaleString(),
+      };
+
+      const updatedHistory = [
+        historyItem,
+        ...history,
+      ].slice(0, 20);
+
+      setHistory(updatedHistory);
+
+      localStorage.setItem(
+        "wafer_prediction_history",
+        JSON.stringify(updatedHistory)
+      );
 
     } catch (err) {
       console.error("Prediction error:", err);
 
       setError(
-        "Unable to connect to the AI backend. Make sure FastAPI is running on port 8000."
+        err.message ||
+        "Unable to connect to the AI backend."
       );
+
     } finally {
       setLoading(false);
     }
   };
 
-  // =========================================================
-  // UI
-  // =========================================================
+  // =========================
+  // CLEAR HISTORY
+  // =========================
+
+  const handleClearHistory = () => {
+    setHistory([]);
+
+    localStorage.removeItem(
+      "wafer_prediction_history"
+    );
+  };
 
   return (
     <div className="app">
 
-      {/* =====================================================
+      {/* =========================
           HEADER
-      ===================================================== */}
+      ========================= */}
 
       <header className="header">
 
@@ -154,15 +206,15 @@ function App() {
       </header>
 
 
-      {/* =====================================================
+      {/* =========================
           MAIN
-      ===================================================== */}
+      ========================= */}
 
       <main className="main-container">
 
-        {/* =================================================
+        {/* =========================
             HERO
-        ================================================= */}
+        ========================= */}
 
         <section className="hero">
 
@@ -176,27 +228,29 @@ function App() {
           </h1>
 
           <p className="hero-text">
-            Upload a semiconductor wafer image and let our AI
-            model identify potential manufacturing defects.
+            Upload a semiconductor wafer image and let our
+            AI model identify potential manufacturing defects.
           </p>
 
         </section>
 
 
-        {/* =================================================
+        {/* =========================
             UPLOAD CARD
-        ================================================= */}
+        ========================= */}
 
         <section className="upload-card">
 
           <div className="card-header">
 
             <div>
+
               <h2>Wafer Inspection</h2>
 
               <p>
                 Upload a wafer map image for AI analysis
               </p>
+
             </div>
 
             <div className="model-badge">
@@ -206,9 +260,9 @@ function App() {
           </div>
 
 
-          {/* =================================================
+          {/* =========================
               UPLOAD AREA
-          ================================================= */}
+          ========================= */}
 
           <label className="upload-area">
 
@@ -223,9 +277,11 @@ function App() {
                 />
 
                 <div className="preview-overlay">
+
                   <span>
                     Wafer Image Ready
                   </span>
+
                 </div>
 
               </div>
@@ -265,9 +321,9 @@ function App() {
           </label>
 
 
-          {/* =================================================
+          {/* =========================
               SELECTED FILE
-          ================================================= */}
+          ========================= */}
 
           {image && (
 
@@ -280,6 +336,7 @@ function App() {
                 </span>
 
                 <div>
+
                   <small>
                     Selected wafer
                   </small>
@@ -287,6 +344,7 @@ function App() {
                   <strong>
                     {image.name}
                   </strong>
+
                 </div>
 
               </div>
@@ -298,6 +356,7 @@ function App() {
                   type="button"
                   className="change-button"
                   onClick={handleChangeImage}
+                  disabled={loading}
                 >
                   Change Image
                 </button>
@@ -306,6 +365,7 @@ function App() {
                   type="button"
                   className="remove-button"
                   onClick={handleRemoveImage}
+                  disabled={loading}
                 >
                   Remove
                 </button>
@@ -317,9 +377,9 @@ function App() {
           )}
 
 
-          {/* =================================================
+          {/* =========================
               ANALYZE BUTTON
-          ================================================= */}
+          ========================= */}
 
           <button
             className="analyze-button"
@@ -338,6 +398,7 @@ function App() {
 
               <>
                 Analyze Wafer
+
                 <span className="button-arrow">
                   →
                 </span>
@@ -348,9 +409,9 @@ function App() {
           </button>
 
 
-          {/* =================================================
+          {/* =========================
               ERROR
-          ================================================= */}
+          ========================= */}
 
           {error && (
 
@@ -371,9 +432,9 @@ function App() {
         </section>
 
 
-        {/* =================================================
-            RESULTS
-        ================================================= */}
+        {/* =========================
+            AI RESULT
+        ========================= */}
 
         {result && (
 
@@ -402,9 +463,9 @@ function App() {
             </div>
 
 
-            {/* =================================================
-                PREDICTION
-            ================================================= */}
+            {/* =========================
+                DEFECT
+            ========================= */}
 
             <div className="prediction-section">
 
@@ -413,15 +474,15 @@ function App() {
               </p>
 
               <h1 className="defect-name">
-                {result.defect}
+                {result.defect || "Unknown"}
               </h1>
 
             </div>
 
 
-            {/* =================================================
+            {/* =========================
                 CONFIDENCE
-            ================================================= */}
+            ========================= */}
 
             <div className="confidence-section">
 
@@ -430,8 +491,67 @@ function App() {
               </p>
 
               <h2 className="confidence-value">
-                {result.confidence}%
+                {result.confidence ?? 0}%
               </h2>
+
+
+              {/* =========================
+                  CONFIDENCE WARNING
+              ========================= */}
+
+              {Number(result.confidence) <
+              CONFIDENCE_THRESHOLD ? (
+
+                <div
+                  className="confidence-warning"
+                  style={{
+                    margin: "15px auto",
+                    padding: "14px 18px",
+                    border: "1px solid #ff5c5c",
+                    borderRadius: "10px",
+                    background:
+                      "rgba(255, 80, 80, 0.08)",
+                    color: "#ff7777",
+                    fontWeight: "600",
+                    textAlign: "center",
+                    maxWidth: "600px",
+                  }}
+                >
+
+                  ⚠ Low Confidence Prediction
+
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: "6px",
+                      fontSize: "13px",
+                      fontWeight: "400",
+                    }}
+                  >
+                    The AI confidence is below{" "}
+                    {CONFIDENCE_THRESHOLD}%.
+                    Please verify this wafer manually.
+                  </span>
+
+                </div>
+
+              ) : (
+
+                <div
+                  className="confidence-success"
+                  style={{
+                    margin: "12px auto",
+                    color: "#00e5ff",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    textAlign: "center",
+                  }}
+                >
+                  ✓ High Confidence Prediction
+                </div>
+
+              )}
+
 
               <div className="confidence-bar">
 
@@ -450,12 +570,11 @@ function App() {
             </div>
 
 
-            {/* =================================================
-                INPUT + HEATMAP
-            ================================================= */}
+            {/* =========================
+                IMAGES
+            ========================= */}
 
             <div className="results-images">
-
 
               {/* INPUT IMAGE */}
 
@@ -501,7 +620,7 @@ function App() {
                   </div>
 
                   <img
-                    src={`http://127.0.0.1:8000${result.heatmap}`}
+                    src={`${API_BASE_URL}${result.heatmap}`}
                     alt="AI heatmap"
                     className="result-image"
                   />
@@ -513,29 +632,196 @@ function App() {
             </div>
 
 
-            {/* =================================================
-                TIMESTAMP
-            ================================================= */}
+            {/* =========================
+                EXTRA RESULT INFO
+            ========================= */}
 
-            {result.timestamp && (
+            <div className="result-details">
 
-              <p className="inspection-time">
-                Inspection time: {result.timestamp}
-              </p>
+              <div>
 
-            )}
+                <span>
+                  MODEL
+                </span>
+
+                <strong>
+                  ResNet50
+                </strong>
+
+              </div>
+
+              <div>
+
+                <span>
+                  STATUS
+                </span>
+
+                <strong>
+                  Analysis Complete
+                </strong>
+
+              </div>
+
+              {result.timestamp && (
+
+                <div>
+
+                  <span>
+                    TIME
+                  </span>
+
+                  <strong>
+                    {result.timestamp}
+                  </strong>
+
+                </div>
+
+              )}
+
+            </div>
 
           </section>
 
         )}
 
 
-        {/* =================================================
+        {/* =========================
+            PREDICTION HISTORY
+        ========================= */}
+
+        {history.length > 0 && (
+
+          <section
+            className="upload-card history-card"
+            style={{
+              marginTop: "25px",
+            }}
+          >
+
+            <div className="card-header">
+
+              <div>
+
+                <h2>
+                  Prediction History
+                </h2>
+
+                <p>
+                  Recent wafer inspection results
+                </p>
+
+              </div>
+
+              <div className="model-badge">
+                {history.length} RECORDS
+              </div>
+
+            </div>
+
+
+            <div
+              className="history-list"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+
+              {history.map((item) => (
+
+                <div
+                  className="history-item"
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "20px",
+                    padding: "15px",
+                    border:
+                      "1px solid rgba(0, 229, 255, 0.15)",
+                    borderRadius: "10px",
+                    background:
+                      "rgba(0, 20, 30, 0.5)",
+                  }}
+                >
+
+                  <div
+                    className="history-info"
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px",
+                    }}
+                  >
+
+                    <strong>
+                      {item.wafer_id}
+                    </strong>
+
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        opacity: "0.6",
+                      }}
+                    >
+                      {item.timestamp}
+                    </span>
+
+                  </div>
+
+
+                  <div
+                    className="history-prediction"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "15px",
+                    }}
+                  >
+
+                    <strong>
+                      {item.defect}
+                    </strong>
+
+                    <span>
+                      {item.confidence.toFixed(1)}%
+                    </span>
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+
+            {/* CLEAR HISTORY */}
+
+            <button
+              type="button"
+              className="remove-button"
+              onClick={handleClearHistory}
+              style={{
+                marginTop: "20px",
+              }}
+            >
+              Clear History
+            </button>
+
+          </section>
+
+        )}
+
+
+        {/* =========================
             INFORMATION CARDS
-        ================================================= */}
+        ========================= */}
 
         <section className="results-grid">
-
 
           <div className="info-card">
 
@@ -599,15 +885,14 @@ function App() {
 
           </div>
 
-
         </section>
 
       </main>
 
 
-      {/* =====================================================
+      {/* =========================
           FOOTER
-      ===================================================== */}
+      ========================= */}
 
       <footer>
         SemiVision • Semiconductor Wafer Defect Detection
