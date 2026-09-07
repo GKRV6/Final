@@ -184,3 +184,8 @@ cython_debug/
 models/*.pth
 __pycache__/
 node_modules/
+
+*.pth
+*.zip
+models/*.pth
+
