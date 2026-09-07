@@ -238,5 +238,253 @@
                 "confidence": 93.77
             }
         }
+    },
+    {
+        "id": 14,
+        "wafer_id": "wafer_6214.png",
+        "defect": "Edge-Loc",
+        "confidence": 98.07,
+        "confidence_status": "High Confidence",
+        "confidence_warning": null,
+        "location": "Lower",
+        "affected_area": 3.62,
+        "timestamp": "2026-09-08 00:02:25",
+        "heatmap": "/heatmaps/heatmap_20260908_000225_745694.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Edge-Loc",
+                "confidence": 99.17
+            },
+            "resnet18": {
+                "defect": "Edge-Loc",
+                "confidence": 98.26
+            },
+            "efficientnet_b2": {
+                "defect": "Edge-Loc",
+                "confidence": 96.87
+            }
+        },
+        "severity": {
+            "score": 37.4,
+            "level": "LOW",
+            "color": "#10b981"
+        }
+    },
+    {
+        "id": 15,
+        "wafer_id": "wafer_101787.png",
+        "defect": "Center",
+        "confidence": 97.57,
+        "confidence_status": "High Confidence",
+        "confidence_warning": null,
+        "location": "Center",
+        "affected_area": 6.27,
+        "timestamp": "2026-09-08 00:05:55",
+        "heatmap": "/heatmaps/heatmap_20260908_000555_368941.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Center",
+                "confidence": 99.54
+            },
+            "resnet18": {
+                "defect": "Center",
+                "confidence": 98.83
+            },
+            "efficientnet_b2": {
+                "defect": "Center",
+                "confidence": 94.98
+            }
+        },
+        "severity": {
+            "score": 41.5,
+            "level": "LOW",
+            "color": "#10b981"
+        }
+    },
+    {
+        "id": 16,
+        "wafer_id": "wafer_1025.png",
+        "defect": "Edge-Loc",
+        "confidence": 97.69,
+        "confidence_status": "High Confidence",
+        "confidence_warning": null,
+        "location": "Center",
+        "affected_area": 3.53,
+        "timestamp": "2026-09-08 00:05:55",
+        "heatmap": "/heatmaps/heatmap_20260908_000555_743086.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Edge-Loc",
+                "confidence": 99.45
+            },
+            "resnet18": {
+                "defect": "Edge-Loc",
+                "confidence": 98.07
+            },
+            "efficientnet_b2": {
+                "defect": "Edge-Loc",
+                "confidence": 95.75
+            }
+        },
+        "severity": {
+            "score": 37.4,
+            "level": "LOW",
+            "color": "#10b981"
+        }
+    },
+    {
+        "id": 17,
+        "wafer_id": "wafer_100346.png",
+        "defect": "Loc",
+        "confidence": 96.5,
+        "confidence_status": "High Confidence",
+        "confidence_warning": null,
+        "location": "Center",
+        "affected_area": 21.2,
+        "timestamp": "2026-09-08 00:05:56",
+        "heatmap": "/heatmaps/heatmap_20260908_000556_177674.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Loc",
+                "confidence": 98.27
+            },
+            "resnet18": {
+                "defect": "Loc",
+                "confidence": 92.39
+            },
+            "efficientnet_b2": {
+                "defect": "Loc",
+                "confidence": 96.78
+            }
+        },
+        "severity": {
+            "score": 41.5,
+            "level": "LOW",
+            "color": "#10b981"
+        }
+    },
+    {
+        "id": 18,
+        "wafer_id": "wafer_108432.png",
+        "defect": "Random",
+        "confidence": 99.14,
+        "confidence_status": "High Confidence",
+        "confidence_warning": null,
+        "location": "Center",
+        "affected_area": 23.82,
+        "timestamp": "2026-09-08 00:05:56",
+        "heatmap": "/heatmaps/heatmap_20260908_000556_589574.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Random",
+                "confidence": 99.98
+            },
+            "resnet18": {
+                "defect": "Random",
+                "confidence": 99.53
+            },
+            "efficientnet_b2": {
+                "defect": "Random",
+                "confidence": 98.11
+            }
+        },
+        "severity": {
+            "score": 33.5,
+            "level": "LOW",
+            "color": "#10b981"
+        }
+    },
+    {
+        "id": 19,
+        "wafer_id": "wafer_101929.png",
+        "defect": "Scratch",
+        "confidence": 98.94,
+        "confidence_status": "High Confidence",
+        "confidence_warning": null,
+        "location": "Center",
+        "affected_area": 10.91,
+        "timestamp": "2026-09-08 00:05:57",
+        "heatmap": "/heatmaps/heatmap_20260908_000557_000880.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Scratch",
+                "confidence": 99.0
+            },
+            "resnet18": {
+                "defect": "Scratch",
+                "confidence": 99.89
+            },
+            "efficientnet_b2": {
+                "defect": "Scratch",
+                "confidence": 98.39
+            }
+        },
+        "severity": {
+            "score": 52.4,
+            "level": "MODERATE",
+            "color": "#f59e0b"
+        }
+    },
+    {
+        "id": 20,
+        "wafer_id": "wafer_116271.png",
+        "defect": "Donut",
+        "confidence": 97.16,
+        "confidence_status": "High Confidence",
+        "confidence_warning": null,
+        "location": "Center",
+        "affected_area": 6.27,
+        "timestamp": "2026-09-08 00:06:22",
+        "heatmap": "/heatmaps/heatmap_20260908_000622_961714.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Donut",
+                "confidence": 99.54
+            },
+            "resnet18": {
+                "defect": "Donut",
+                "confidence": 97.32
+            },
+            "efficientnet_b2": {
+                "defect": "Donut",
+                "confidence": 94.69
+            }
+        },
+        "severity": {
+            "score": 44.5,
+            "level": "LOW",
+            "color": "#10b981"
+        }
+    },
+    {
+        "id": 21,
+        "wafer_id": "wafer_762985.png",
+        "defect": "Donut",
+        "confidence": 70.51,
+        "confidence_status": "Moderate Confidence",
+        "confidence_warning": "Prediction is moderately confident.",
+        "location": "Center",
+        "affected_area": 8.53,
+        "timestamp": "2026-09-08 00:11:56",
+        "heatmap": "/heatmaps/heatmap_20260908_001156_786239.png",
+        "ensemble_breakdown": {
+            "resnet50": {
+                "defect": "Donut",
+                "confidence": 99.96
+            },
+            "resnet18": {
+                "defect": "Random",
+                "confidence": 98.64
+            },
+            "efficientnet_b2": {
+                "defect": "Donut",
+                "confidence": 75.68
+            }
+        },
+        "severity": {
+            "score": 45.4,
+            "level": "MODERATE",
+            "color": "#f59e0b"
+        }
     }
 ]

@@ -294,6 +294,7 @@ function App() {
         timestamp:
           data.timestamp || new Date().toLocaleString(),
         ensemble_breakdown: data.ensemble_breakdown || null,
+        severity: data.severity || null,
       };
 
       setHistory((previousHistory) => {
@@ -320,7 +321,7 @@ function App() {
 
       setError(
         err.message ||
-          "Unable to connect to the AI backend."
+        "Unable to connect to the AI backend."
       );
     } finally {
       setLoading(false);
@@ -348,12 +349,12 @@ function App() {
   const averageConfidence =
     history.length > 0
       ? (
-          history.reduce(
-            (sum, item) =>
-              sum + Number(item.confidence || 0),
-            0
-          ) / history.length
-        ).toFixed(1)
+        history.reduce(
+          (sum, item) =>
+            sum + Number(item.confidence || 0),
+          0
+        ) / history.length
+      ).toFixed(1)
       : "0.0";
 
   const highConfidenceCount =
@@ -497,7 +498,7 @@ function App() {
 
             <div>
               <h3>AI ENGINE</h3>
-              <p>ResNet50</p>
+              <p>Triple Ensemble (ResNet50 + EfficientNet-B2 + ResNet18)</p>
             </div>
 
           </div>
@@ -978,8 +979,8 @@ function App() {
                           {status === "complete"
                             ? "✓"
                             : status === "active"
-                            ? "●"
-                            : number}
+                              ? "●"
+                              : number}
 
                         </div>
 
@@ -1245,96 +1246,227 @@ function App() {
 
 
             {/* =================================================
-                CONFIDENCE
+                CONFIDENCE & SEVERITY METRICS DUAL PANEL
             ================================================= */}
 
             <div
               style={{
-                textAlign: "center",
-                marginBottom: "30px",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "16px",
+                marginBottom: "28px",
               }}
             >
-
-              <p className="result-label">
-                AI CONFIDENCE
-              </p>
-
-              <h2 className="confidence-value">
-                {result.confidence ?? 0}%
-              </h2>
-
-
+              {/* CARD 1: AI CONFIDENCE */}
               <div
                 style={{
-                  width: "100%",
-                  maxWidth: "650px",
-                  height: "9px",
-                  margin: "18px auto",
-                  borderRadius: "999px",
+                  padding: "24px",
+                  borderRadius: "16px",
                   background:
-                    "rgba(0,229,255,.08)",
-                  overflow: "hidden",
-                  border:
-                    "1px solid rgba(0,229,255,.1)",
+                    "linear-gradient(145deg, rgba(0,229,255,.05), rgba(6,18,32,.7))",
+                  border: "1px solid rgba(0,229,255,.2)",
+                  boxShadow: "0 8px 30px rgba(0,0,0,.35)",
+                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
                 }}
               >
+                <div>
+                  <p className="result-label" style={{ marginBottom: "10px" }}>
+                    AI ENSEMBLE CONFIDENCE
+                  </p>
 
-                <div
-                  style={{
-                    width: `${Math.min(
-                      Number(result.confidence) || 0,
-                      100
-                    )}%`,
-                    height: "100%",
-                    background:
-                      "linear-gradient(90deg,#00bfff,#00ffd5)",
-                    boxShadow:
-                      "0 0 20px rgba(0,229,255,.55)",
-                    transition:
-                      "width 1.2s ease",
-                  }}
-                />
+                  <h2 className="confidence-value" style={{ margin: "4px 0 14px 0" }}>
+                    {result.confidence ?? 0}%
+                  </h2>
 
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "9px",
+                      margin: "14px auto",
+                      borderRadius: "999px",
+                      background: "rgba(0,229,255,.08)",
+                      overflow: "hidden",
+                      border: "1px solid rgba(0,229,255,.1)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.min(
+                          Number(result.confidence) || 0,
+                          100
+                        )}%`,
+                        height: "100%",
+                        background:
+                          "linear-gradient(90deg, #00bfff, #00ffd5)",
+                        boxShadow: "0 0 20px rgba(0,229,255,.55)",
+                        transition: "width 1.2s ease",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  {Number(result.confidence) < CONFIDENCE_THRESHOLD ? (
+                    <div
+                      style={{
+                        padding: "9px 14px",
+                        border: "1px solid rgba(255,90,100,.35)",
+                        borderRadius: "8px",
+                        color: "#ff7777",
+                        background: "rgba(255,70,80,.08)",
+                        fontSize: "12px",
+                        fontWeight: "600",
+                      }}
+                    >
+                      ⚠ LOW CONFIDENCE • VERIFY
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        padding: "9px 14px",
+                        border: "1px solid rgba(0,229,255,.3)",
+                        borderRadius: "8px",
+                        color: "#00ffd5",
+                        background: "rgba(0,229,255,.08)",
+                        fontSize: "12px",
+                        fontWeight: "700",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      ✓ HIGH CONFIDENCE CONSENSUS
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* CARD 2: DEFECT SEVERITY INDEX */}
+              <div
+                style={{
+                  padding: "24px",
+                  borderRadius: "16px",
+                  background:
+                    "linear-gradient(145deg, rgba(0,229,255,.05), rgba(6,18,32,.7))",
+                  border: `1px solid ${(result.severity?.level === "CRITICAL")
+                    ? "rgba(239, 68, 68, 0.45)"
+                    : (result.severity?.level === "MODERATE")
+                      ? "rgba(245, 158, 11, 0.45)"
+                      : "rgba(16, 185, 129, 0.45)"
+                    }`,
+                  boxShadow: "0 8px 30px rgba(0,0,0,.35)",
+                  textAlign: "center",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <p className="result-label" style={{ marginBottom: "10px" }}>
+                    DEFECT SEVERITY INDEX
+                  </p>
 
-              {Number(result.confidence) <
-              CONFIDENCE_THRESHOLD ? (
+                  <h2
+                    style={{
+                      margin: "4px 0 14px 0",
+                      fontSize: "clamp(32px, 4vw, 42px)",
+                      fontWeight: "800",
+                      color: result.severity?.color || "#f59e0b",
+                      fontFamily: "Space Mono, monospace",
+                      letterSpacing: "1px",
+                      textShadow: `0 0 20px ${(result.severity?.level === "CRITICAL")
+                        ? "rgba(239, 68, 68, 0.4)"
+                        : (result.severity?.level === "MODERATE")
+                          ? "rgba(245, 158, 11, 0.4)"
+                          : "rgba(16, 185, 129, 0.4)"
+                        }`,
+                    }}
+                  >
+                    {result.severity?.score ?? 0}
+                    <span
+                      style={{
+                        fontSize: "16px",
+                        color: "#5c7182",
+                        fontWeight: "500",
+                        marginLeft: "4px",
+                      }}
+                    >
+                      / 100
+                    </span>
+                  </h2>
 
-                <div
-                  style={{
-                    margin: "15px auto",
-                    padding: "13px 18px",
-                    border:
-                      "1px solid rgba(255,90,100,.35)",
-                    borderRadius: "10px",
-                    color: "#ff7777",
-                    background:
-                      "rgba(255,70,80,.06)",
-                    maxWidth: "600px",
-                    fontSize: "13px",
-                  }}
-                >
-                  ⚠ LOW CONFIDENCE
-                  <br />
-                  MANUAL VERIFICATION RECOMMENDED
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "9px",
+                      margin: "14px auto",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,.06)",
+                      overflow: "hidden",
+                      border: "1px solid rgba(255,255,255,.1)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.min(
+                          Number(result.severity?.score) || 0,
+                          100
+                        )}%`,
+                        height: "100%",
+                        background:
+                          (result.severity?.level === "CRITICAL")
+                            ? "linear-gradient(90deg, #f59e0b, #ef4444)"
+                            : (result.severity?.level === "MODERATE")
+                              ? "linear-gradient(90deg, #10b981, #f59e0b)"
+                              : "linear-gradient(90deg, #00bfff, #10b981)",
+                        boxShadow: `0 0 16px ${result.severity?.color || "#f59e0b"
+                          }`,
+                        transition: "width 1.2s ease",
+                      }}
+                    />
+                  </div>
                 </div>
 
-              ) : (
-
-                <div
-                  style={{
-                    marginTop: "14px",
-                    color: "#00e5ff",
-                    fontSize: "13px",
-                    fontWeight: "700",
-                  }}
-                >
-                  ✓ HIGH CONFIDENCE PREDICTION
+                <div>
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      padding: "8px 18px",
+                      borderRadius: "8px",
+                      background:
+                        (result.severity?.level === "CRITICAL")
+                          ? "rgba(239, 68, 68, 0.15)"
+                          : (result.severity?.level === "MODERATE")
+                            ? "rgba(245, 158, 11, 0.15)"
+                            : "rgba(16, 185, 129, 0.15)",
+                      border: `1px solid ${result.severity?.color || "#f59e0b"
+                        }`,
+                      color: result.severity?.color || "#f59e0b",
+                      fontSize: "12px",
+                      fontWeight: "800",
+                      fontFamily: "Space Mono, monospace",
+                      letterSpacing: "1px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        background:
+                          result.severity?.color || "#f59e0b",
+                        boxShadow: `0 0 8px ${result.severity?.color || "#f59e0b"
+                          }`,
+                      }}
+                    />
+                    {result.severity?.level || "MODERATE"} SEVERITY
+                  </div>
                 </div>
-
-              )}
-
+              </div>
             </div>
 
 
@@ -1532,8 +1664,8 @@ function App() {
                           width: `${Math.min(
                             Number(
                               result.ensemble_breakdown?.resnet50?.confidence ??
-                                result.confidence ??
-                                0
+                              result.confidence ??
+                              0
                             ),
                             100
                           )}%`,
@@ -1669,8 +1801,8 @@ function App() {
                             Number(
                               result.ensemble_breakdown?.efficientnet_b2
                                 ?.confidence ??
-                                result.confidence ??
-                                0
+                              result.confidence ??
+                              0
                             ),
                             100
                           )}%`,
@@ -1804,8 +1936,8 @@ function App() {
                           width: `${Math.min(
                             Number(
                               result.ensemble_breakdown?.resnet18?.confidence ??
-                                result.confidence ??
-                                0
+                              result.confidence ??
+                              0
                             ),
                             100
                           )}%`,
@@ -2470,13 +2602,13 @@ function App() {
                             style={{
                               color:
                                 Number(item.confidence || 0) <
-                                CONFIDENCE_THRESHOLD
+                                  CONFIDENCE_THRESHOLD
                                   ? "#ff7777"
                                   : "#00e5ff",
                             }}
                           >
                             {Number(item.confidence || 0) <
-                            CONFIDENCE_THRESHOLD
+                              CONFIDENCE_THRESHOLD
                               ? "YES"
                               : "NO"}
                           </strong>

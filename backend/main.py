@@ -48,7 +48,7 @@ app.add_middleware(
 
 
 # ============================================================
-# DEFECT CLASSES
+# DEFECT CLASSES & BASE SEVERITY RISK WEIGHTS
 # ============================================================
 
 classes = [
@@ -61,6 +61,18 @@ classes = [
     "Random",
     "Scratch"
 ]
+
+# Industrial base risk weights for semiconductor defect severity scoring
+DEFECT_BASE_WEIGHTS = {
+    "Near-full": 95.0,
+    "Scratch": 80.0,
+    "Edge-Ring": 75.0,
+    "Donut": 70.0,
+    "Center": 65.0,
+    "Edge-Loc": 60.0,
+    "Loc": 55.0,
+    "Random": 40.0
+}
 
 
 # ============================================================
@@ -209,6 +221,9 @@ eff_checkpoint = torch.load(
     efficientnet_b2_path,
     map_location=device
 )
+if isinstance(eff_checkpoint, dict) and "classes" in eff_checkpoint:
+    classes = eff_checkpoint["classes"]
+
 eff_state_dict = (
     eff_checkpoint["model_state_dict"]
     if isinstance(eff_checkpoint, dict) and "model_state_dict" in eff_checkpoint
@@ -224,36 +239,41 @@ model = model_resnet50
 
 
 # ============================================================
-# IMAGE PREPROCESSING TRANSFORMS
+# MODEL-SPECIFIC IMAGE PREPROCESSING TRANSFORMS
 # ============================================================
 
-# ResNets (224 x 224)
-transform_224 = transforms.Compose([
-    transforms.Grayscale(
-        num_output_channels=3
-    ),
-
-    transforms.Resize(
-        (224, 224)
-    ),
-
+# ResNet50 (224x224 grayscale-expanded to 3 channels, raw [0, 1])
+transform_resnet50 = transforms.Compose([
+    transforms.Grayscale(num_output_channels=3),
+    transforms.Resize((224, 224)),
     transforms.ToTensor()
 ])
 
-# EfficientNet-B2 (260 x 260)
-transform_260 = transforms.Compose([
-    transforms.Grayscale(
-        num_output_channels=3
-    ),
-
-    transforms.Resize(
-        (260, 260)
-    ),
-
-    transforms.ToTensor()
+# ResNet18 (224x224 grayscale-expanded to 3 channels with ImageNet normalization)
+transform_resnet18 = transforms.Compose([
+    transforms.Grayscale(num_output_channels=3),
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
 ])
 
-transform = transform_224
+# EfficientNet-B2 (260x260 RGB with ImageNet normalization)
+transform_effnet = transforms.Compose([
+    transforms.Resize((260, 260)),
+    transforms.ToTensor(),
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+])
+
+# Backward compatibility aliases
+transform_224 = transform_resnet50
+transform_260 = transform_effnet
+transform = transform_resnet50
 
 
 # ============================================================
@@ -713,10 +733,10 @@ async def predict(
 
 
     # ========================================================
-    # PREPROCESS IMAGE (224x224 FOR RESNETS, 260x260 FOR EFFNET)
+    # MODEL-SPECIFIC PREPROCESSING (ALIGNED FOR HIGH CONSENSUS)
     # ========================================================
 
-    image_tensor_224 = transform_224(
+    image_tensor_r50 = transform_resnet50(
         original_image
     ).unsqueeze(
         0
@@ -724,7 +744,7 @@ async def predict(
         device
     )
 
-    image_tensor_260 = transform_260(
+    image_tensor_r18 = transform_resnet18(
         original_image
     ).unsqueeze(
         0
@@ -732,7 +752,15 @@ async def predict(
         device
     )
 
-    image_tensor = image_tensor_224
+    image_tensor_eff = transform_effnet(
+        original_image
+    ).unsqueeze(
+        0
+    ).to(
+        device
+    )
+
+    image_tensor = image_tensor_r50
 
 
     # ========================================================
@@ -810,7 +838,7 @@ async def predict(
     model_resnet50.zero_grad()
 
     outputs_resnet50 = model_resnet50(
-        image_tensor_224
+        image_tensor_r50
     )
 
     probs_resnet50 = torch.softmax(
@@ -820,13 +848,13 @@ async def predict(
 
 
     # ========================================================
-    # FORWARD PASS: RESNET18 & EFFICIENTNET-B2
+    # FORWARD PASS: RESNET18 & EFFICIENTNET-B2 (WITH NORMALIZATION)
     # ========================================================
 
     with torch.no_grad():
 
         outputs_resnet18 = model_resnet18(
-            image_tensor_224
+            image_tensor_r18
         )
 
         probs_resnet18 = torch.softmax(
@@ -835,7 +863,7 @@ async def predict(
         )
 
         outputs_eff = model_efficientnet_b2(
-            image_tensor_260
+            image_tensor_eff
         )
 
         probs_eff = torch.softmax(
@@ -1192,6 +1220,39 @@ async def predict(
 
 
     # ========================================================
+    # DEFECT SEVERITY SCORE CALCULATION
+    # ========================================================
+
+    base_weight = DEFECT_BASE_WEIGHTS.get(defect, 50.0)
+
+    # affected_area is calculated as a percentage (0.0 to 100.0)
+    # of active defect pixels on the wafer die
+    coverage_percentage = float(affected_area)
+
+    # Formula: Severity = min(100, round((0.6 * base_weight) + (0.4 * (activation_coverage_percentage * 100)), 1))
+    severity_score = min(
+        100.0,
+        round((0.6 * base_weight) + (0.4 * coverage_percentage), 1)
+    )
+
+    if severity_score >= 75.0:
+        severity_level = "CRITICAL"
+        severity_color = "#ef4444"
+    elif severity_score >= 45.0:
+        severity_level = "MODERATE"
+        severity_color = "#f59e0b"
+    else:
+        severity_level = "LOW"
+        severity_color = "#10b981"
+
+    severity = {
+        "score": severity_score,
+        "level": severity_level,
+        "color": severity_color
+    }
+
+
+    # ========================================================
     # LOAD HISTORY
     # ========================================================
 
@@ -1253,7 +1314,10 @@ async def predict(
             f"/heatmaps/{heatmap_filename}",
 
         "ensemble_breakdown":
-            ensemble_breakdown
+            ensemble_breakdown,
+
+        "severity":
+            severity
     }
 
 
@@ -1314,7 +1378,10 @@ async def predict(
             record["timestamp"],
 
         "ensemble_breakdown":
-            ensemble_breakdown
+            ensemble_breakdown,
+
+        "severity":
+            severity
     }
 
 
