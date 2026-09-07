@@ -35,7 +35,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "http://localhost:5174"
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -86,10 +90,24 @@ project_root = os.path.dirname(
     )
 )
 
-model_path = os.path.join(
+models_dir = os.path.join(
     project_root,
-    "models",
+    "models"
+)
+
+resnet50_path = os.path.join(
+    models_dir,
     "resnet50_wafer.pth"
+)
+
+resnet18_path = os.path.join(
+    models_dir,
+    "resnet18_wafer_best.pth"
+)
+
+efficientnet_b2_path = os.path.join(
+    models_dir,
+    "efficientnet_b2_best.pth"
 )
 
 backend_folder = os.path.dirname(
@@ -131,45 +149,86 @@ if not os.path.exists(history_file):
 
 
 # ============================================================
-# LOAD RESNET50
+# LOAD 3-MODEL ENSEMBLE (ResNet50, ResNet18, EfficientNet-B2)
 # ============================================================
 
-model = models.resnet50(
-    weights=None
+num_classes = len(classes)
+
+# 1. ResNet50
+if not os.path.exists(resnet50_path):
+    raise FileNotFoundError(f"ResNet50 model file not found: {resnet50_path}")
+
+model_resnet50 = models.resnet50(weights=None)
+model_resnet50.fc = torch.nn.Linear(
+    model_resnet50.fc.in_features,
+    num_classes
 )
-
-model.fc = torch.nn.Linear(
-    model.fc.in_features,
-    8
-)
-
-if not os.path.exists(model_path):
-
-    raise FileNotFoundError(
-        f"Model file not found: {model_path}"
-    )
-
-model.load_state_dict(
+model_resnet50.load_state_dict(
     torch.load(
-        model_path,
+        resnet50_path,
         map_location=device
     )
 )
+model_resnet50 = model_resnet50.to(device)
+model_resnet50.eval()
+print("ResNet50 model loaded successfully")
 
-model = model.to(device)
+# 2. ResNet18
+if not os.path.exists(resnet18_path):
+    raise FileNotFoundError(f"ResNet18 model file not found: {resnet18_path}")
 
-model.eval()
-
-print(
-    "ResNet50 model loaded successfully"
+model_resnet18 = models.resnet18(weights=None)
+model_resnet18.fc = torch.nn.Linear(
+    model_resnet18.fc.in_features,
+    num_classes
 )
+r18_checkpoint = torch.load(
+    resnet18_path,
+    map_location=device
+)
+r18_state_dict = (
+    r18_checkpoint["model_state_dict"]
+    if isinstance(r18_checkpoint, dict) and "model_state_dict" in r18_checkpoint
+    else r18_checkpoint
+)
+model_resnet18.load_state_dict(r18_state_dict)
+model_resnet18 = model_resnet18.to(device)
+model_resnet18.eval()
+print("ResNet18 model loaded successfully")
+
+# 3. EfficientNet-B2
+if not os.path.exists(efficientnet_b2_path):
+    raise FileNotFoundError(f"EfficientNet-B2 model file not found: {efficientnet_b2_path}")
+
+model_efficientnet_b2 = models.efficientnet_b2(weights=None)
+model_efficientnet_b2.classifier[1] = torch.nn.Linear(
+    model_efficientnet_b2.classifier[1].in_features,
+    num_classes
+)
+eff_checkpoint = torch.load(
+    efficientnet_b2_path,
+    map_location=device
+)
+eff_state_dict = (
+    eff_checkpoint["model_state_dict"]
+    if isinstance(eff_checkpoint, dict) and "model_state_dict" in eff_checkpoint
+    else eff_checkpoint
+)
+model_efficientnet_b2.load_state_dict(eff_state_dict)
+model_efficientnet_b2 = model_efficientnet_b2.to(device)
+model_efficientnet_b2.eval()
+print("EfficientNet-B2 model loaded successfully")
+
+# Keep alias for Grad-CAM compatibility
+model = model_resnet50
 
 
 # ============================================================
-# IMAGE PREPROCESSING
+# IMAGE PREPROCESSING TRANSFORMS
 # ============================================================
 
-transform = transforms.Compose([
+# ResNets (224 x 224)
+transform_224 = transforms.Compose([
     transforms.Grayscale(
         num_output_channels=3
     ),
@@ -180,6 +239,21 @@ transform = transforms.Compose([
 
     transforms.ToTensor()
 ])
+
+# EfficientNet-B2 (260 x 260)
+transform_260 = transforms.Compose([
+    transforms.Grayscale(
+        num_output_channels=3
+    ),
+
+    transforms.Resize(
+        (260, 260)
+    ),
+
+    transforms.ToTensor()
+])
+
+transform = transform_224
 
 
 # ============================================================
@@ -208,7 +282,7 @@ def home():
             "Semiconductor Wafer Defect Detection API is running",
 
         "model":
-            "ResNet50",
+            "Ensemble (ResNet50 + EfficientNet-B2 + ResNet18)",
 
         "device":
             str(device),
@@ -639,16 +713,26 @@ async def predict(
 
 
     # ========================================================
-    # PREPROCESS IMAGE
+    # PREPROCESS IMAGE (224x224 FOR RESNETS, 260x260 FOR EFFNET)
     # ========================================================
 
-    image_tensor = transform(
+    image_tensor_224 = transform_224(
         original_image
     ).unsqueeze(
         0
     ).to(
         device
     )
+
+    image_tensor_260 = transform_260(
+        original_image
+    ).unsqueeze(
+        0
+    ).to(
+        device
+    )
+
+    image_tensor = image_tensor_224
 
 
     # ========================================================
@@ -700,10 +784,10 @@ async def predict(
 
 
     # ========================================================
-    # TARGET LAYER
+    # TARGET LAYER (GRAD-CAM ON RESNET50)
     # ========================================================
 
-    target_layer = model.layer4[-1]
+    target_layer = model_resnet50.layer4[-1]
 
 
     forward_handle = (
@@ -720,36 +804,91 @@ async def predict(
 
 
     # ========================================================
-    # FORWARD PASS
+    # FORWARD PASS: RESNET50 (WITH GRAD-CAM HOOKS)
     # ========================================================
 
-    model.zero_grad()
+    model_resnet50.zero_grad()
 
-    outputs = model(
-        image_tensor
+    outputs_resnet50 = model_resnet50(
+        image_tensor_224
     )
 
-
-    # ========================================================
-    # PROBABILITIES
-    # ========================================================
-
-    probabilities = torch.softmax(
-        outputs,
+    probs_resnet50 = torch.softmax(
+        outputs_resnet50,
         dim=1
     )
 
+
+    # ========================================================
+    # FORWARD PASS: RESNET18 & EFFICIENTNET-B2
+    # ========================================================
+
+    with torch.no_grad():
+
+        outputs_resnet18 = model_resnet18(
+            image_tensor_224
+        )
+
+        probs_resnet18 = torch.softmax(
+            outputs_resnet18,
+            dim=1
+        )
+
+        outputs_eff = model_efficientnet_b2(
+            image_tensor_260
+        )
+
+        probs_eff = torch.softmax(
+            outputs_eff,
+            dim=1
+        )
+
+
+    # ========================================================
+    # WEIGHTED SOFT-VOTING ENSEMBLE
+    # 0.40 * ResNet50 + 0.40 * EfficientNet-B2 + 0.20 * ResNet18
+    # ========================================================
+
+    ensemble_probs = (
+        0.40 * probs_resnet50
+        + 0.40 * probs_eff
+        + 0.20 * probs_resnet18
+    )
+
     confidence, predicted = torch.max(
-        probabilities,
+        ensemble_probs,
         1
     )
 
+    # --------------------------------------------------------
+    # INDIVIDUAL MODEL PREDICTIONS FOR ENSEMBLE BREAKDOWN
+    # --------------------------------------------------------
+
+    conf_r50, pred_r50 = torch.max(probs_resnet50, 1)
+    conf_r18, pred_r18 = torch.max(probs_resnet18, 1)
+    conf_eff, pred_eff = torch.max(probs_eff, 1)
+
+    ensemble_breakdown = {
+        "resnet50": {
+            "defect": classes[pred_r50.item()],
+            "confidence": round(conf_r50.item() * 100, 2)
+        },
+        "resnet18": {
+            "defect": classes[pred_r18.item()],
+            "confidence": round(conf_r18.item() * 100, 2)
+        },
+        "efficientnet_b2": {
+            "defect": classes[pred_eff.item()],
+            "confidence": round(conf_eff.item() * 100, 2)
+        }
+    }
+
 
     # ========================================================
-    # BACKWARD PASS
+    # BACKWARD PASS (GRAD-CAM ON RESNET50 FOR PREDICTED DEFECT)
     # ========================================================
 
-    score = outputs[
+    score = outputs_resnet50[
         0,
         predicted.item()
     ]
@@ -1111,7 +1250,10 @@ async def predict(
             ),
 
         "heatmap":
-            f"/heatmaps/{heatmap_filename}"
+            f"/heatmaps/{heatmap_filename}",
+
+        "ensemble_breakdown":
+            ensemble_breakdown
     }
 
 
@@ -1169,7 +1311,10 @@ async def predict(
             file.filename,
 
         "timestamp":
-            record["timestamp"]
+            record["timestamp"],
+
+        "ensemble_breakdown":
+            ensemble_breakdown
     }
 
 

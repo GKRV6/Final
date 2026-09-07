@@ -293,6 +293,7 @@ function App() {
           Number(data.affected_area) || 0,
         timestamp:
           data.timestamp || new Date().toLocaleString(),
+        ensemble_breakdown: data.ensemble_breakdown || null,
       };
 
       setHistory((previousHistory) => {
@@ -1204,9 +1205,29 @@ function App() {
                   color: "#00e5ff",
                   letterSpacing: "2px",
                   marginBottom: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  flexWrap: "wrap",
                 }}
               >
-                DETECTED DEFECT
+                <span>DETECTED DEFECT</span>
+                <span
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: "999px",
+                    background: "rgba(0, 229, 255, 0.12)",
+                    border: "1px solid rgba(0, 229, 255, 0.45)",
+                    color: "#00ffd5",
+                    fontSize: "9px",
+                    letterSpacing: "1.5px",
+                    fontWeight: "700",
+                    boxShadow: "0 0 10px rgba(0, 229, 255, 0.2)",
+                  }}
+                >
+                  FINAL ENSEMBLE CONSENSUS
+                </span>
               </div>
 
               <h1
@@ -1314,6 +1335,491 @@ function App() {
 
               )}
 
+            </div>
+
+
+            {/* =================================================
+                ENSEMBLE CONSENSUS BREAKDOWN
+            ================================================= */}
+
+            <div
+              style={{
+                marginBottom: "26px",
+                padding: "20px 22px",
+                borderRadius: "16px",
+                background:
+                  "linear-gradient(145deg, rgba(0,229,255,.05), rgba(6,18,32,.7))",
+                border: "1px solid rgba(0,229,255,.22)",
+                boxShadow: "0 8px 30px rgba(0,0,0,.4)",
+              }}
+            >
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "18px",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontFamily: "Space Mono, monospace",
+                    fontSize: "10px",
+                    color: "#00e5ff",
+                    letterSpacing: "1.8px",
+                    fontWeight: "700",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      background: "#00ffd5",
+                      boxShadow: "0 0 8px #00ffd5",
+                      display: "inline-block",
+                    }}
+                  />
+                  ENSEMBLE CONSENSUS BREAKDOWN
+                </div>
+
+                <div
+                  style={{
+                    fontFamily: "Space Mono, monospace",
+                    fontSize: "9px",
+                    color: "#8da0b3",
+                    letterSpacing: "1.2px",
+                    padding: "3px 10px",
+                    borderRadius: "6px",
+                    background: "rgba(0,229,255,.06)",
+                    border: "1px solid rgba(0,229,255,.14)",
+                  }}
+                >
+                  SOFT-VOTING AGGREGATION
+                </div>
+              </div>
+
+              {/* 3 MODEL CARDS GRID */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                {/* 1. ResNet50 (Weight: 40%) */}
+                <div
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: "12px",
+                    background:
+                      "linear-gradient(145deg, rgba(0,229,255,.06), rgba(0,229,255,.015))",
+                    border: "1px solid rgba(0,229,255,.18)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "12px",
+                        fontWeight: "700",
+                        color: "#ffffff",
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      ResNet50
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "9px",
+                        padding: "2px 7px",
+                        borderRadius: "4px",
+                        background: "rgba(0,191,255,.15)",
+                        border: "1px solid rgba(0,191,255,.3)",
+                        color: "#00bfff",
+                        fontWeight: "700",
+                      }}
+                    >
+                      Weight: 40%
+                    </span>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "9px",
+                        color: "#5c7182",
+                        letterSpacing: "1.2px",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      PREDICTED DEFECT
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "17px",
+                        fontWeight: "800",
+                        color: "#00e5ff",
+                      }}
+                    >
+                      {result.ensemble_breakdown?.resnet50?.defect ||
+                        result.defect ||
+                        "Analyzing..."}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "Space Mono, monospace",
+                          fontSize: "9px",
+                          color: "#5c7182",
+                        }}
+                      >
+                        CONFIDENCE
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "Space Mono, monospace",
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          color: "#00ffd5",
+                        }}
+                      >
+                        {result.ensemble_breakdown?.resnet50?.confidence ??
+                          result.confidence ??
+                          0}
+                        %
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "5px",
+                        borderRadius: "999px",
+                        background: "rgba(0,229,255,.1)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.min(
+                            Number(
+                              result.ensemble_breakdown?.resnet50?.confidence ??
+                                result.confidence ??
+                                0
+                            ),
+                            100
+                          )}%`,
+                          height: "100%",
+                          background:
+                            "linear-gradient(90deg, #00bfff, #00ffd5)",
+                          borderRadius: "999px",
+                          transition: "width 1s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. EfficientNet-B2 (Weight: 40%) */}
+                <div
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: "12px",
+                    background:
+                      "linear-gradient(145deg, rgba(0,229,255,.06), rgba(0,229,255,.015))",
+                    border: "1px solid rgba(0,229,255,.18)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "12px",
+                        fontWeight: "700",
+                        color: "#ffffff",
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      EfficientNet-B2
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "9px",
+                        padding: "2px 7px",
+                        borderRadius: "4px",
+                        background: "rgba(0,255,213,.15)",
+                        border: "1px solid rgba(0,255,213,.3)",
+                        color: "#00ffd5",
+                        fontWeight: "700",
+                      }}
+                    >
+                      Weight: 40%
+                    </span>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "9px",
+                        color: "#5c7182",
+                        letterSpacing: "1.2px",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      PREDICTED DEFECT
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "17px",
+                        fontWeight: "800",
+                        color: "#00e5ff",
+                      }}
+                    >
+                      {result.ensemble_breakdown?.efficientnet_b2?.defect ||
+                        result.defect ||
+                        "Analyzing..."}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "Space Mono, monospace",
+                          fontSize: "9px",
+                          color: "#5c7182",
+                        }}
+                      >
+                        CONFIDENCE
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "Space Mono, monospace",
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          color: "#00ffd5",
+                        }}
+                      >
+                        {result.ensemble_breakdown?.efficientnet_b2
+                          ?.confidence ??
+                          result.confidence ??
+                          0}
+                        %
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "5px",
+                        borderRadius: "999px",
+                        background: "rgba(0,229,255,.1)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.min(
+                            Number(
+                              result.ensemble_breakdown?.efficientnet_b2
+                                ?.confidence ??
+                                result.confidence ??
+                                0
+                            ),
+                            100
+                          )}%`,
+                          height: "100%",
+                          background:
+                            "linear-gradient(90deg, #00bfff, #00ffd5)",
+                          borderRadius: "999px",
+                          transition: "width 1s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. ResNet18 (Weight: 20%) */}
+                <div
+                  style={{
+                    padding: "16px 18px",
+                    borderRadius: "12px",
+                    background:
+                      "linear-gradient(145deg, rgba(0,229,255,.06), rgba(0,229,255,.015))",
+                    border: "1px solid rgba(0,229,255,.18)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "12px",
+                        fontWeight: "700",
+                        color: "#ffffff",
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      ResNet18
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "9px",
+                        padding: "2px 7px",
+                        borderRadius: "4px",
+                        background: "rgba(168,85,247,.15)",
+                        border: "1px solid rgba(168,85,247,.3)",
+                        color: "#c084fc",
+                        fontWeight: "700",
+                      }}
+                    >
+                      Weight: 20%
+                    </span>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        fontFamily: "Space Mono, monospace",
+                        fontSize: "9px",
+                        color: "#5c7182",
+                        letterSpacing: "1.2px",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      PREDICTED DEFECT
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "17px",
+                        fontWeight: "800",
+                        color: "#00e5ff",
+                      }}
+                    >
+                      {result.ensemble_breakdown?.resnet18?.defect ||
+                        result.defect ||
+                        "Analyzing..."}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "Space Mono, monospace",
+                          fontSize: "9px",
+                          color: "#5c7182",
+                        }}
+                      >
+                        CONFIDENCE
+                      </span>
+                      <span
+                        style={{
+                          fontFamily: "Space Mono, monospace",
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          color: "#00ffd5",
+                        }}
+                      >
+                        {result.ensemble_breakdown?.resnet18?.confidence ??
+                          result.confidence ??
+                          0}
+                        %
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "5px",
+                        borderRadius: "999px",
+                        background: "rgba(0,229,255,.1)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.min(
+                            Number(
+                              result.ensemble_breakdown?.resnet18?.confidence ??
+                                result.confidence ??
+                                0
+                            ),
+                            100
+                          )}%`,
+                          height: "100%",
+                          background:
+                            "linear-gradient(90deg, #00bfff, #00ffd5)",
+                          borderRadius: "999px",
+                          transition: "width 1s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
 
