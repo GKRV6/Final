@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 import torch
 from torchvision import models, transforms
@@ -16,20 +16,20 @@ import numpy as np
 import matplotlib.cm as cm
 
 
-# =========================================================
-# APP
-# =========================================================
+# ============================================================
+# FASTAPI APP
+# ============================================================
 
 app = FastAPI(
     title="SemiVision - Semiconductor Wafer Defect Detection API",
     description="AI-based semiconductor wafer defect detection using ResNet50",
-    version="1.0"
+    version="1.3"
 )
 
 
-# =========================================================
+# ============================================================
 # CORS
-# =========================================================
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,9 +43,9 @@ app.add_middleware(
 )
 
 
-# =========================================================
+# ============================================================
 # DEFECT CLASSES
-# =========================================================
+# ============================================================
 
 classes = [
     "Center",
@@ -59,9 +59,9 @@ classes = [
 ]
 
 
-# =========================================================
+# ============================================================
 # DEVICE
-# =========================================================
+# ============================================================
 
 device = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
@@ -69,10 +69,16 @@ device = torch.device(
 
 print("Using device:", device)
 
+if torch.cuda.is_available():
+    print(
+        "GPU:",
+        torch.cuda.get_device_name(0)
+    )
 
-# =========================================================
-# PATHS
-# =========================================================
+
+# ============================================================
+# PROJECT PATHS
+# ============================================================
 
 project_root = os.path.dirname(
     os.path.dirname(
@@ -86,24 +92,24 @@ model_path = os.path.join(
     "resnet50_wafer.pth"
 )
 
+backend_folder = os.path.dirname(
+    os.path.abspath(__file__)
+)
+
 heatmap_folder = os.path.join(
-    os.path.dirname(
-        os.path.abspath(__file__)
-    ),
+    backend_folder,
     "heatmaps"
 )
 
 history_file = os.path.join(
-    os.path.dirname(
-        os.path.abspath(__file__)
-    ),
+    backend_folder,
     "inspection_history.json"
 )
 
 
-# =========================================================
+# ============================================================
 # CREATE REQUIRED FOLDERS / FILES
-# =========================================================
+# ============================================================
 
 os.makedirs(
     heatmap_folder,
@@ -112,13 +118,21 @@ os.makedirs(
 
 if not os.path.exists(history_file):
 
-    with open(history_file, "w") as f:
-        json.dump([], f, indent=4)
+    with open(
+        history_file,
+        "w"
+    ) as f:
+
+        json.dump(
+            [],
+            f,
+            indent=4
+        )
 
 
-# =========================================================
-# RESNET50 MODEL
-# =========================================================
+# ============================================================
+# LOAD RESNET50
+# ============================================================
 
 model = models.resnet50(
     weights=None
@@ -128,11 +142,6 @@ model.fc = torch.nn.Linear(
     model.fc.in_features,
     8
 )
-
-
-# =========================================================
-# LOAD TRAINED MODEL
-# =========================================================
 
 if not os.path.exists(model_path):
 
@@ -151,15 +160,16 @@ model = model.to(device)
 
 model.eval()
 
-print("ResNet50 model loaded successfully")
+print(
+    "ResNet50 model loaded successfully"
+)
 
 
-# =========================================================
+# ============================================================
 # IMAGE PREPROCESSING
-# =========================================================
+# ============================================================
 
 transform = transforms.Compose([
-
     transforms.Grayscale(
         num_output_channels=3
     ),
@@ -172,9 +182,9 @@ transform = transforms.Compose([
 ])
 
 
-# =========================================================
-# HEATMAP STATIC FILES
-# =========================================================
+# ============================================================
+# SERVE HEATMAP IMAGES
+# ============================================================
 
 app.mount(
     "/heatmaps",
@@ -185,65 +195,483 @@ app.mount(
 )
 
 
-# =========================================================
-# HOME
-# =========================================================
+# ============================================================
+# HOME / HEALTH CHECK
+# ============================================================
 
 @app.get("/")
 def home():
 
     return {
-        "message": "Semiconductor Wafer Defect Detection API is running",
-        "model": "ResNet50",
-        "device": str(device),
-        "classes": classes
+
+        "message":
+            "Semiconductor Wafer Defect Detection API is running",
+
+        "model":
+            "ResNet50",
+
+        "device":
+            str(device),
+
+        "classes":
+            classes
     }
 
 
-# =========================================================
-# PREDICT
-# =========================================================
+# ============================================================
+# CREATE WAFER MASK
+# ============================================================
+
+def create_wafer_mask(image):
+    """
+    Creates an approximate mask of the actual wafer.
+
+    The WM-811K wafer maps have a bright wafer region
+    surrounded by a dark/black background.
+
+    This mask prevents Grad-CAM activation outside
+    the actual wafer from appearing in the heatmap.
+    """
+
+    # --------------------------------------------------------
+    # Convert image to grayscale
+    # --------------------------------------------------------
+
+    gray = image.convert(
+        "L"
+    )
+
+    # --------------------------------------------------------
+    # Resize to the same resolution used by ResNet50
+    # --------------------------------------------------------
+
+    gray = gray.resize(
+        (224, 224),
+        Image.Resampling.BILINEAR
+    )
+
+    gray_array = np.array(
+        gray
+    )
+
+    # --------------------------------------------------------
+    # Detect wafer pixels
+    #
+    # Pixels brighter than a small threshold are treated
+    # as part of the wafer.
+    # --------------------------------------------------------
+
+    threshold = 10
+
+    mask_array = (
+        gray_array > threshold
+    ).astype(
+        np.uint8
+    ) * 255
+
+    mask_image = Image.fromarray(
+        mask_array
+    )
+
+    # --------------------------------------------------------
+    # Slightly close small holes in the wafer mask.
+    #
+    # This helps prevent dark defect pixels inside the wafer
+    # from creating holes in the mask.
+    # --------------------------------------------------------
+
+    mask_image = mask_image.filter(
+        ImageFilter.MaxFilter(5)
+    )
+
+    mask_image = mask_image.filter(
+        ImageFilter.MinFilter(5)
+    )
+
+    mask_array = np.array(
+        mask_image
+    ) > 0
+
+    # --------------------------------------------------------
+    # Safety fallback
+    #
+    # If a valid wafer cannot be detected, use the whole
+    # image so prediction still works.
+    # --------------------------------------------------------
+
+    if np.sum(mask_array) < 100:
+
+        mask_array = np.ones(
+            (224, 224),
+            dtype=bool
+        )
+
+    return mask_array
+
+
+# ============================================================
+# GRAD-CAM LOCALIZATION
+# ============================================================
+
+def get_defect_location(
+    cam,
+    wafer_mask
+):
+
+    """
+    Calculates approximate defect location and
+    high-activation region using Grad-CAM.
+
+    IMPORTANT:
+    This is coarse AI-assisted localization.
+    It is NOT true pixel-level segmentation.
+    """
+
+    # --------------------------------------------------------
+    # Ensure positive CAM
+    # --------------------------------------------------------
+
+    cam = np.maximum(
+        cam,
+        0
+    )
+
+
+    # --------------------------------------------------------
+    # Normalize CAM between 0 and 1
+    # --------------------------------------------------------
+
+    if cam.max() > 0:
+
+        cam = (
+            cam
+            /
+            cam.max()
+        )
+
+
+    # --------------------------------------------------------
+    # Upscale CAM to 224 x 224
+    #
+    # ResNet50 layer4 produces a small feature map.
+    # Upscaling gives a much more granular area calculation.
+    # --------------------------------------------------------
+
+    cam_image = Image.fromarray(
+        cam.astype(np.float32),
+        mode="F"
+    )
+
+    cam_image = cam_image.resize(
+        (224, 224),
+        Image.Resampling.BILINEAR
+    )
+
+    cam = np.array(
+        cam_image
+    )
+
+
+    # --------------------------------------------------------
+    # Normalize again after interpolation
+    # --------------------------------------------------------
+
+    cam = cam - cam.min()
+
+    if cam.max() > 0:
+
+        cam = (
+            cam
+            /
+            cam.max()
+        )
+
+
+    # --------------------------------------------------------
+    # IMPORTANT:
+    # Remove Grad-CAM activation outside the wafer.
+    # --------------------------------------------------------
+
+    cam = np.where(
+        wafer_mask,
+        cam,
+        0
+    )
+
+
+    height, width = cam.shape
+
+
+    # --------------------------------------------------------
+    # Strong activation threshold
+    # --------------------------------------------------------
+
+    threshold = 0.60
+
+    mask = (
+        cam >= threshold
+    )
+
+    # Only consider pixels inside wafer
+    mask = (
+        mask
+        &
+        wafer_mask
+    )
+
+
+    # --------------------------------------------------------
+    # Fallback for very small activation regions
+    # --------------------------------------------------------
+
+    if np.sum(mask) < 20:
+
+        threshold = 0.45
+
+        mask = (
+            cam >= threshold
+        )
+
+        mask = (
+            mask
+            &
+            wafer_mask
+        )
+
+
+    # --------------------------------------------------------
+    # Final fallback
+    # --------------------------------------------------------
+
+    if np.sum(mask) == 0:
+
+        wafer_values = np.where(
+            wafer_mask,
+            cam,
+            -1
+        )
+
+        max_y, max_x = np.unravel_index(
+            np.argmax(
+                wafer_values
+            ),
+            cam.shape
+        )
+
+        mask = np.zeros_like(
+            cam,
+            dtype=bool
+        )
+
+        mask[
+            max_y,
+            max_x
+        ] = True
+
+
+    # ========================================================
+    # WEIGHTED ACTIVATION CENTER
+    # ========================================================
+
+    total_activation = cam.sum()
+
+    if total_activation > 0:
+
+        y_indices, x_indices = np.indices(
+            cam.shape
+        )
+
+        center_x = (
+            (x_indices * cam).sum()
+            /
+            total_activation
+        )
+
+        center_y = (
+            (y_indices * cam).sum()
+            /
+            total_activation
+        )
+
+    else:
+
+        center_x = width / 2
+
+        center_y = height / 2
+
+
+    # ========================================================
+    # HORIZONTAL LOCATION
+    # ========================================================
+
+    if center_x < width * 0.33:
+
+        horizontal = "Left"
+
+    elif center_x > width * 0.67:
+
+        horizontal = "Right"
+
+    else:
+
+        horizontal = "Center"
+
+
+    # ========================================================
+    # VERTICAL LOCATION
+    # ========================================================
+
+    if center_y < height * 0.33:
+
+        vertical = "Upper"
+
+    elif center_y > height * 0.67:
+
+        vertical = "Lower"
+
+    else:
+
+        vertical = "Middle"
+
+
+    # ========================================================
+    # COMBINE LOCATION
+    # ========================================================
+
+    if (
+        horizontal == "Center"
+        and
+        vertical == "Middle"
+    ):
+
+        location = "Center"
+
+    elif horizontal == "Center":
+
+        location = vertical
+
+    elif vertical == "Middle":
+
+        location = horizontal
+
+    else:
+
+        location = (
+            f"{vertical} {horizontal}"
+        )
+
+
+    # ========================================================
+    # HIGH-ACTIVATION REGION
+    #
+    # IMPORTANT:
+    # Calculate the percentage ONLY inside the wafer.
+    #
+    # This prevents background pixels from affecting
+    # the activation-area calculation.
+    # ========================================================
+
+    activated_pixels = np.sum(
+        mask
+    )
+
+    wafer_pixels = np.sum(
+        wafer_mask
+    )
+
+    if wafer_pixels > 0:
+
+        activation_percentage = (
+            activated_pixels
+            /
+            wafer_pixels
+        ) * 100
+
+    else:
+
+        activation_percentage = 0
+
+
+    # ========================================================
+    # RETURN LOCALIZATION INFORMATION
+    # ========================================================
+
+    return {
+
+        "location":
+            location,
+
+        "affected_area":
+            round(
+                float(
+                    activation_percentage
+                ),
+                2
+            ),
+
+        "threshold":
+            threshold
+    }
+
+
+# ============================================================
+# PREDICTION ENDPOINT
+# ============================================================
 
 @app.post("/predict")
 async def predict(
     file: UploadFile = File(...)
 ):
 
-    # -----------------------------------------------------
-    # Read uploaded image
-    # -----------------------------------------------------
+    # ========================================================
+    # READ IMAGE
+    # ========================================================
 
     image_data = await file.read()
 
     original_image = Image.open(
-        io.BytesIO(image_data)
-    ).convert("RGB")
+        io.BytesIO(
+            image_data
+        )
+    ).convert(
+        "RGB"
+    )
 
 
-    # -----------------------------------------------------
-    # Preprocess image
-    # -----------------------------------------------------
+    # ========================================================
+    # PREPROCESS IMAGE
+    # ========================================================
 
     image_tensor = transform(
         original_image
+    ).unsqueeze(
+        0
+    ).to(
+        device
     )
 
-    image_tensor = image_tensor.unsqueeze(0)
 
-    image_tensor = image_tensor.to(device)
+    # ========================================================
+    # CREATE WAFER MASK
+    # ========================================================
+
+    wafer_mask = create_wafer_mask(
+        original_image
+    )
 
 
-    # -----------------------------------------------------
-    # Grad-CAM storage
-    # -----------------------------------------------------
+    # ========================================================
+    # GRAD-CAM STORAGE
+    # ========================================================
 
     activations = []
+
     gradients = []
 
 
-    # -----------------------------------------------------
-    # Forward hook
-    # -----------------------------------------------------
+    # ========================================================
+    # FORWARD HOOK
+    # ========================================================
 
     def forward_hook(
         module,
@@ -256,9 +684,9 @@ async def predict(
         )
 
 
-    # -----------------------------------------------------
-    # Backward hook
-    # -----------------------------------------------------
+    # ========================================================
+    # BACKWARD HOOK
+    # ========================================================
 
     def backward_hook(
         module,
@@ -271,24 +699,29 @@ async def predict(
         )
 
 
-    # -----------------------------------------------------
-    # Grad-CAM target layer
-    # -----------------------------------------------------
+    # ========================================================
+    # TARGET LAYER
+    # ========================================================
 
     target_layer = model.layer4[-1]
 
-    forward_handle = target_layer.register_forward_hook(
-        forward_hook
+
+    forward_handle = (
+        target_layer.register_forward_hook(
+            forward_hook
+        )
     )
 
-    backward_handle = target_layer.register_full_backward_hook(
-        backward_hook
+    backward_handle = (
+        target_layer.register_full_backward_hook(
+            backward_hook
+        )
     )
 
 
-    # -----------------------------------------------------
-    # Prediction
-    # -----------------------------------------------------
+    # ========================================================
+    # FORWARD PASS
+    # ========================================================
 
     model.zero_grad()
 
@@ -297,19 +730,14 @@ async def predict(
     )
 
 
-    # -----------------------------------------------------
-    # Probabilities
-    # -----------------------------------------------------
+    # ========================================================
+    # PROBABILITIES
+    # ========================================================
 
     probabilities = torch.softmax(
         outputs,
         dim=1
     )
-
-
-    # -----------------------------------------------------
-    # Highest probability class
-    # -----------------------------------------------------
 
     confidence, predicted = torch.max(
         probabilities,
@@ -317,9 +745,9 @@ async def predict(
     )
 
 
-    # -----------------------------------------------------
-    # Backpropagate predicted class
-    # -----------------------------------------------------
+    # ========================================================
+    # BACKWARD PASS
+    # ========================================================
 
     score = outputs[
         0,
@@ -329,27 +757,27 @@ async def predict(
     score.backward()
 
 
-    # -----------------------------------------------------
-    # Remove hooks
-    # -----------------------------------------------------
+    # ========================================================
+    # REMOVE HOOKS
+    # ========================================================
 
     forward_handle.remove()
 
     backward_handle.remove()
 
 
-    # -----------------------------------------------------
-    # Get Grad-CAM data
-    # -----------------------------------------------------
+    # ========================================================
+    # GET ACTIVATIONS / GRADIENTS
+    # ========================================================
 
     activation = activations[0]
 
     gradient = gradients[0]
 
 
-    # -----------------------------------------------------
-    # Calculate Grad-CAM weights
-    # -----------------------------------------------------
+    # ========================================================
+    # GRAD-CAM WEIGHTS
+    # ========================================================
 
     weights = gradient.mean(
         dim=(2, 3),
@@ -357,80 +785,200 @@ async def predict(
     )
 
 
-    # -----------------------------------------------------
-    # Generate CAM
-    # -----------------------------------------------------
+    # ========================================================
+    # GENERATE CAM
+    # ========================================================
 
     cam = (
-        weights * activation
+        weights
+        *
+        activation
     ).sum(
         dim=1
     )
 
 
-    # -----------------------------------------------------
-    # Remove negative values
-    # -----------------------------------------------------
+    # ========================================================
+    # RELU
+    # ========================================================
 
     cam = torch.relu(
         cam
     )
 
 
-    # -----------------------------------------------------
-    # Normalize CAM
-    # -----------------------------------------------------
+    # ========================================================
+    # CONVERT TO NUMPY
+    # ========================================================
 
-    cam = cam[
-        0
-    ].detach().cpu().numpy()
+    cam = (
+        cam[0]
+        .detach()
+        .cpu()
+        .numpy()
+    )
+
+
+    # ========================================================
+    # NORMALIZE CAM
+    # ========================================================
 
     cam = cam - cam.min()
 
     if cam.max() != 0:
-        cam = cam / cam.max()
+
+        cam = (
+            cam
+            /
+            cam.max()
+        )
 
 
-    # -----------------------------------------------------
-    # Convert CAM to heatmap
-    # -----------------------------------------------------
+    # ========================================================
+    # GET LOCALIZATION
+    # ========================================================
+
+    localization = get_defect_location(
+        cam,
+        wafer_mask
+    )
+
+    defect_location = (
+        localization[
+            "location"
+        ]
+    )
+
+    affected_area = (
+        localization[
+            "affected_area"
+        ]
+    )
+
+
+    # ========================================================
+    # PREPARE CAM FOR HEATMAP
+    #
+    # Upscale the CAM to 224 x 224 and remove activation
+    # outside the wafer.
+    # ========================================================
+
+    cam_image = Image.fromarray(
+        cam.astype(np.float32),
+        mode="F"
+    )
+
+    cam_image = cam_image.resize(
+        (224, 224),
+        Image.Resampling.BILINEAR
+    )
+
+    display_cam = np.array(
+        cam_image
+    )
+
+    display_cam = (
+        display_cam
+        -
+        display_cam.min()
+    )
+
+    if display_cam.max() > 0:
+
+        display_cam = (
+            display_cam
+            /
+            display_cam.max()
+        )
+
+    # Remove background activation
+    display_cam = np.where(
+        wafer_mask,
+        display_cam,
+        0
+    )
+
+
+    # ========================================================
+    # CREATE GRAD-CAM HEATMAP
+    # ========================================================
 
     heatmap = cm.jet(
-        cam
+        display_cam
     )[:, :, :3]
 
     heatmap = np.uint8(
         heatmap * 255
     )
 
+
+    # ========================================================
+    # CREATE HEATMAP IMAGE
+    # ========================================================
+
     heatmap_image = Image.fromarray(
         heatmap
     )
 
 
-    # -----------------------------------------------------
-    # Resize heatmap
-    # -----------------------------------------------------
+    # ========================================================
+    # CREATE WAFER MASK IMAGE
+    # ========================================================
 
-    heatmap_image = heatmap_image.resize(
-        original_image.size
+    wafer_mask_image = Image.fromarray(
+        (
+            wafer_mask.astype(
+                np.uint8
+            )
+            *
+            255
+        )
     )
 
 
-    # -----------------------------------------------------
-    # Create overlay
-    # -----------------------------------------------------
+    # ========================================================
+    # RESIZE TO ORIGINAL IMAGE SIZE
+    # ========================================================
+
+    heatmap_image = heatmap_image.resize(
+        original_image.size,
+        Image.Resampling.BILINEAR
+    )
+
+    wafer_mask_image = wafer_mask_image.resize(
+        original_image.size,
+        Image.Resampling.NEAREST
+    )
+
+
+    # ========================================================
+    # REMOVE HEATMAP OUTSIDE WAFER
+    #
+    # Outside the wafer, retain the original image instead
+    # of showing blue/red Grad-CAM colors.
+    # ========================================================
+
+    masked_heatmap = Image.composite(
+        heatmap_image,
+        original_image,
+        wafer_mask_image
+    )
+
+
+    # ========================================================
+    # OVERLAY HEATMAP
+    # ========================================================
 
     overlay = Image.blend(
         original_image,
-        heatmap_image,
+        masked_heatmap,
         alpha=0.5
     )
 
 
-    # -----------------------------------------------------
-    # Unique heatmap filename
-    # -----------------------------------------------------
+    # ========================================================
+    # SAVE HEATMAP
+    # ========================================================
 
     timestamp = datetime.now().strftime(
         "%Y%m%d_%H%M%S_%f"
@@ -445,42 +993,48 @@ async def predict(
         heatmap_filename
     )
 
-
-    # -----------------------------------------------------
-    # Save heatmap
-    # -----------------------------------------------------
-
     overlay.save(
         heatmap_path
     )
 
 
-    # =====================================================
-    # FINAL PREDICTION VALUES
-    # =====================================================
+    # ========================================================
+    # DEFECT
+    # ========================================================
 
     defect = classes[
         predicted.item()
     ]
 
+
+    # ========================================================
+    # CONFIDENCE
+    # ========================================================
+
     confidence_percentage = (
-        confidence.item() * 100
+        confidence.item()
+        *
+        100
     )
 
 
-    # =====================================================
-    # CONFIDENCE WARNING
-    # =====================================================
+    # ========================================================
+    # CONFIDENCE STATUS
+    # ========================================================
 
     if confidence_percentage >= 80:
 
-        confidence_status = "High Confidence"
+        confidence_status = (
+            "High Confidence"
+        )
 
         confidence_warning = None
 
     elif confidence_percentage >= 60:
 
-        confidence_status = "Moderate Confidence"
+        confidence_status = (
+            "Moderate Confidence"
+        )
 
         confidence_warning = (
             "Prediction is moderately confident."
@@ -488,7 +1042,9 @@ async def predict(
 
     else:
 
-        confidence_status = "Low Confidence"
+        confidence_status = (
+            "Low Confidence"
+        )
 
         confidence_warning = (
             "Low confidence prediction. "
@@ -496,9 +1052,9 @@ async def predict(
         )
 
 
-    # =====================================================
-    # SAVE INSPECTION HISTORY
-    # =====================================================
+    # ========================================================
+    # LOAD HISTORY
+    # ========================================================
 
     try:
 
@@ -507,56 +1063,65 @@ async def predict(
             "r"
         ) as f:
 
-            history = json.load(f)
+            history = json.load(
+                f
+            )
 
     except:
 
         history = []
 
 
-    # -----------------------------------------------------
-    # Create inspection record
-    # -----------------------------------------------------
+    # ========================================================
+    # CREATE HISTORY RECORD
+    # ========================================================
 
     record = {
 
-        "id": len(history) + 1,
+        "id":
+            len(history) + 1,
 
-        "wafer_id": file.filename,
+        "wafer_id":
+            file.filename,
 
-        "defect": defect,
+        "defect":
+            defect,
 
-        "confidence": round(
-            confidence_percentage,
-            2
-        ),
+        "confidence":
+            round(
+                confidence_percentage,
+                2
+            ),
 
-        "confidence_status": confidence_status,
+        "confidence_status":
+            confidence_status,
 
-        "confidence_warning": confidence_warning,
+        "confidence_warning":
+            confidence_warning,
 
-        "timestamp": datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        ),
+        "location":
+            defect_location,
 
-        "heatmap": (
+        "affected_area":
+            affected_area,
+
+        "timestamp":
+            datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+
+        "heatmap":
             f"/heatmaps/{heatmap_filename}"
-        )
     }
 
 
-    # -----------------------------------------------------
-    # Add record
-    # -----------------------------------------------------
+    # ========================================================
+    # SAVE HISTORY
+    # ========================================================
 
     history.append(
         record
     )
-
-
-    # -----------------------------------------------------
-    # Save history
-    # -----------------------------------------------------
 
     with open(
         history_file,
@@ -570,36 +1135,47 @@ async def predict(
         )
 
 
-    # =====================================================
+    # ========================================================
     # RETURN RESULT
-    # =====================================================
+    # ========================================================
 
     return {
 
-        "defect": defect,
+        "defect":
+            defect,
 
-        "confidence": round(
-            confidence_percentage,
-            2
-        ),
+        "confidence":
+            round(
+                confidence_percentage,
+                2
+            ),
 
-        "confidence_status": confidence_status,
+        "confidence_status":
+            confidence_status,
 
-        "confidence_warning": confidence_warning,
+        "confidence_warning":
+            confidence_warning,
 
-        "heatmap": (
-            f"/heatmaps/{heatmap_filename}"
-        ),
+        "location":
+            defect_location,
 
-        "wafer_id": file.filename,
+        "affected_area":
+            affected_area,
 
-        "timestamp": record["timestamp"]
+        "heatmap":
+            f"/heatmaps/{heatmap_filename}",
+
+        "wafer_id":
+            file.filename,
+
+        "timestamp":
+            record["timestamp"]
     }
 
 
-# =========================================================
-# INSPECTION HISTORY
-# =========================================================
+# ============================================================
+# GET HISTORY
+# ============================================================
 
 @app.get("/history")
 def get_history():
@@ -611,7 +1187,9 @@ def get_history():
             "r"
         ) as f:
 
-            history = json.load(f)
+            history = json.load(
+                f
+            )
 
     except:
 
@@ -620,15 +1198,17 @@ def get_history():
 
     return {
 
-        "total_inspections": len(history),
+        "total_inspections":
+            len(history),
 
-        "inspections": history
+        "inspections":
+            history
     }
 
 
-# =========================================================
+# ============================================================
 # CLEAR HISTORY
-# =========================================================
+# ============================================================
 
 @app.delete("/history")
 def clear_history():
@@ -647,5 +1227,6 @@ def clear_history():
 
     return {
 
-        "message": "Inspection history cleared successfully"
+        "message":
+            "Inspection history cleared successfully"
     }
